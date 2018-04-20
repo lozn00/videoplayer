@@ -1,0 +1,168 @@
+apply plugin: 'com.android.library'
+
+android {
+    compileSdkVersion 23
+    buildToolsVersion '27.0.3'
+
+    defaultConfig {
+        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+
+        minSdkVersion 14
+        targetSdkVersion 23
+        versionCode 1
+        versionName "0.2"
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+dependencies {
+    androidTestCompile 'com.android.support.test:runner:0.4.1'
+    androidTestImplementation 'com.android.support.test:rules:0.4.1'
+    androidTestImplementation 'com.android.support.test.espresso:espresso-core:2.2.1'
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    testImplementation 'junit:junit:4.12'
+}
+
+
+
+apply plugin: 'com.github.dcendents.android-maven'
+apply plugin: 'com.jfrog.bintray'
+
+
+
+def siteUrl = 'https://qssq666.cn' // 修改为你的项目的主页
+def gitUrl = 'https://github.com/qssq/videoplayer' // 修改为你的Git仓库的ur
+
+version = "0.1"
+group = "cn.qssq666" // Maven Group ID for the artifact，一般填你唯一的包名
+
+install {
+
+    repositories.mavenInstaller {
+
+// This generates POM.xml with proper parameters
+
+        pom {
+
+            project {
+
+                packaging 'aar'
+
+// Add your description here
+
+                name 'qssq project for Android.' //项目描述
+
+                url siteUrl
+
+// Set your license
+
+                licenses {
+
+                    license {
+
+                        name 'The Apache Software License, Version 2.0'
+
+                        url 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+
+                    }
+
+                }
+
+                developers {
+
+                    developer {
+
+                        id 'luozheng' //填写的一些基本信息
+
+                        name 'luozheng1'
+
+                        email 'qssq666@foxmail.com'
+
+                    }
+
+                }
+
+                scm {
+
+                    connection gitUrl
+
+                    developerConnection gitUrl
+
+                    url siteUrl
+
+                }
+
+            }
+
+        }
+
+    }
+
+}
+
+
+
+tasks.withType(Javadoc) { //防止doc错误
+    options.addStringOption('Xdoclint:none', '-quiet')
+    options.addStringOption('encoding', 'UTF-8')
+    options.addStringOption('charSet', 'UTF-8')
+}
+
+//tasks.withType(Compile) {
+//  options.encoding = "UTF-8"
+//} ould not get unknown property 'Compile' for project ':dbmodule' of type org.gradle.api.Project.
+
+
+
+task javadoc(type: Javadoc) {
+    source = android.sourceSets.main.java.srcDirs
+    classpath += project.files(android.getBootClasspath().join(File.pathSeparator))
+}
+
+task javadocJar(type: Jar, dependsOn: javadoc) {
+    classifier = 'javadoc'
+    from javadoc.destinationDir
+}
+
+
+task sourcesJar(type: Jar) {
+    from android.sourceSets.main.java.srcDirs
+    classifier = 'sources'
+}
+artifacts {
+    archives javadocJar
+    archives sourcesJar
+}
+
+Properties properties = new Properties()
+properties.load(project.file('f:/sign/sign.properties').newDataInputStream())
+bintray {
+
+    user = properties.getProperty("bintray.user")
+
+    key = properties.getProperty("bintray.apikey")
+
+    configurations = ['archives']
+
+    pkg {
+
+        repo = "maven"
+
+        name = "videoplayermanager" //发布到JCenter上的项目名字
+
+        websiteUrl = siteUrl
+
+        vcsUrl = gitUrl
+
+        licenses = ["Apache-2.0"]
+
+        publish = true
+
+    }
+
+}
