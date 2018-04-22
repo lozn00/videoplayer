@@ -14,6 +14,7 @@ public enum PlayerMessageState {
     STOPPED,
     RELEASING,
     RELEASED,
+    DESTORY_THREAD_AND_PLAYER,
     RESETTING,
     RESET,
     CLEARING_PLAYER_INSTANCE,

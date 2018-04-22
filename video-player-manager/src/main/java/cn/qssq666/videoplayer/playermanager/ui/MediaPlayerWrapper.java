@@ -10,9 +10,6 @@ import android.os.Looper;
 import android.util.Log;
 import android.view.Surface;
 
-import cn.qssq666.videoplayer.playermanager.Config;
-import cn.qssq666.videoplayer.playermanager.utils.Logger;
-
 import java.io.FileDescriptor;
 import java.io.IOException;
 import java.util.concurrent.Executors;
@@ -20,6 +17,9 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+
+import cn.qssq666.videoplayer.playermanager.Config;
+import cn.qssq666.videoplayer.playermanager.utils.Logger;
 
 /**
  * This class encapsulates {@link MediaPlayer}
@@ -492,7 +492,8 @@ public abstract class MediaPlayerWrapper
                 case STOPPED:
                 case PREPARED:
                 case END:
-                    throw new IllegalStateException("pause, called from illegal state " + mState);
+                    Log.e(TAG,"pause FAIL not support state "+mState);
+                    return;
 
                 case STARTED:
                     clearProgressListener();

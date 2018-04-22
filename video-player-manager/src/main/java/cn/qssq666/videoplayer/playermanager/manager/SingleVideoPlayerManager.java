@@ -4,27 +4,28 @@ import android.content.res.AssetFileDescriptor;
 import android.media.MediaPlayer;
 import android.util.Log;
 
+import java.util.Arrays;
+
 import cn.qssq666.videoplayer.playermanager.Config;
-import cn.qssq666.videoplayer.playermanager.meta.MetaData;
-import cn.qssq666.videoplayer.playermanager.player_messages.ClearPlayerInstance;
-import cn.qssq666.videoplayer.playermanager.player_messages.CreateNewPlayerInstance;
-import cn.qssq666.videoplayer.playermanager.player_messages.Pause;
-import cn.qssq666.videoplayer.playermanager.player_messages.SetAssetsDataSourceMessage;
 import cn.qssq666.videoplayer.playermanager.MyMessagesHandlerThread;
 import cn.qssq666.videoplayer.playermanager.PlayerMessageState;
+import cn.qssq666.videoplayer.playermanager.SetNewViewForPlayback;
+import cn.qssq666.videoplayer.playermanager.meta.MetaData;
+import cn.qssq666.videoplayer.playermanager.player_messages.ClearPlayerInstance;
+import cn.qssq666.videoplayer.playermanager.player_messages.ClearPlayerInstanceAndDestoryThread;
+import cn.qssq666.videoplayer.playermanager.player_messages.CreateNewPlayerInstance;
+import cn.qssq666.videoplayer.playermanager.player_messages.Pause;
+import cn.qssq666.videoplayer.playermanager.player_messages.PlayerMessage;
 import cn.qssq666.videoplayer.playermanager.player_messages.Prepare;
 import cn.qssq666.videoplayer.playermanager.player_messages.Release;
 import cn.qssq666.videoplayer.playermanager.player_messages.Reset;
-import cn.qssq666.videoplayer.playermanager.SetNewViewForPlayback;
+import cn.qssq666.videoplayer.playermanager.player_messages.SetAssetsDataSourceMessage;
 import cn.qssq666.videoplayer.playermanager.player_messages.SetUrlDataSourceMessage;
-import cn.qssq666.videoplayer.playermanager.player_messages.PlayerMessage;
 import cn.qssq666.videoplayer.playermanager.player_messages.Start;
 import cn.qssq666.videoplayer.playermanager.player_messages.Stop;
 import cn.qssq666.videoplayer.playermanager.ui.MediaPlayerWrapper;
 import cn.qssq666.videoplayer.playermanager.ui.VideoPlayerView;
 import cn.qssq666.videoplayer.playermanager.utils.Logger;
-
-import java.util.Arrays;
 
 /**
  * This implementation of {@link VideoPlayerManager} is designed to manage a single video playback.
@@ -48,6 +49,7 @@ public class SingleVideoPlayerManager implements VideoPlayerManager<MetaData>, V
      * To notify that player was switched.
      */
     private final PlayerItemChangeListener mPlayerItemChangeListener;
+    private boolean mDestory;
 
     public VideoPlayerView getCurrentPlayer() {
         return mCurrentPlayer;
@@ -244,7 +246,6 @@ public class SingleVideoPlayerManager implements VideoPlayerManager<MetaData>, V
 
         mPlayerHandler.clearAllPendingMessages(TAG);
         stopResetReleaseClearCurrentPlayer();
-
         mPlayerHandler.resumeQueueProcessing(TAG);
 
         if (SHOW_LOGS)
@@ -258,7 +259,9 @@ public class SingleVideoPlayerManager implements VideoPlayerManager<MetaData>, V
             Logger.err(TAG, "mediaplay not prepared");
             return;
         }
+        mPlayerHandler.pauseQueueProcessing(TAG);
         mPlayerHandler.clearAllPendingMessages(TAG);
+
         mPlayerHandler.addMessage(new Stop(mCurrentPlayer, this));
         mPlayerHandler.resumeQueueProcessing(TAG);
 
@@ -283,7 +286,7 @@ public class SingleVideoPlayerManager implements VideoPlayerManager<MetaData>, V
         if (SHOW_LOGS) {
             Logger.v(TAG, "continuePlay, mCurrentPlayerState " + getCurrentPlayerState());
         }
-
+        mPlayerHandler.clearAllPendingMessages(TAG);
         mPlayerHandler.addMessage(new Start(mCurrentPlayer, this));
         mPlayerHandler.resumeQueueProcessing(TAG);
     }
@@ -336,7 +339,7 @@ public class SingleVideoPlayerManager implements VideoPlayerManager<MetaData>, V
 
     @Override
     public boolean isPlay() {
-        if (getCurrentPlayerState() == PlayerMessageState.PREPARED || getCurrentPlayerState() == PlayerMessageState.STARTED) {
+        if (getCurrentPlayerState() == PlayerMessageState.PREPARED || getCurrentPlayerState() == PlayerMessageState.STARTED|| getCurrentPlayerState() == PlayerMessageState.STARTING) {
             return true;
         }
         return false;
@@ -344,17 +347,18 @@ public class SingleVideoPlayerManager implements VideoPlayerManager<MetaData>, V
 
     @Override
     public void pause() {
-        mPlayerHandler.pauseQueueProcessing(TAG);
-        if (SHOW_LOGS) {
-            Logger.v(TAG, "continuePlay, mCurrentPlayerState " + getCurrentPlayerState());
-        }
-        if(mCurrentPlayer==null){
-            Logger.v(TAG, "continuePlay fail player is null, mCurrentPlayerState " + getCurrentPlayerState());
-            Log.e(TAG,"");
+        if (mCurrentPlayer == null) {
+            Logger.v(TAG, "Pause fail player is null, mCurrentPlayerState " + getCurrentPlayerState());
+            Log.e(TAG, "");
             return;
         }
+        mPlayerHandler.pauseQueueProcessing(TAG);
+        mPlayerHandler.clearAllPendingMessages(TAG);
 
         mPlayerHandler.addMessage(new Pause(mCurrentPlayer, this));
+        if (SHOW_LOGS) {
+            Logger.v(TAG, "Pause, mCurrentPlayerState " + getCurrentPlayerState());
+        }
         mPlayerHandler.resumeQueueProcessing(TAG);
     }
 
@@ -406,8 +410,8 @@ public class SingleVideoPlayerManager implements VideoPlayerManager<MetaData>, V
         if (SHOW_LOGS)
             Logger.v(TAG, "stopResetReleaseClearCurrentPlayer, mCurrentPlayerState " + mCurrentPlayerState + ", mCurrentPlayer " + mCurrentPlayer);
 
-        if(mCurrentPlayer==null){
-            Log.e(TAG,"video is empty");
+        if (mCurrentPlayer == null) {
+            Log.e(TAG, "video is empty");
             return;
         }
         switch (mCurrentPlayerState) {
@@ -450,8 +454,15 @@ public class SingleVideoPlayerManager implements VideoPlayerManager<MetaData>, V
                 mPlayerHandler.addMessage(new ClearPlayerInstance(mCurrentPlayer, this));
 
                 break;
+            case DESTORY_THREAD_AND_PLAYER:
+
+                break;
             case END:
                 throw new RuntimeException("unhandled " + mCurrentPlayerState);
+        }
+
+        if (mDestory) {
+            mPlayerHandler.addMessage(new ClearPlayerInstanceAndDestoryThread(mCurrentPlayer, this, mPlayerHandler));
         }
     }
 
@@ -603,6 +614,26 @@ public class SingleVideoPlayerManager implements VideoPlayerManager<MetaData>, V
 
     @Override
     public void onVideoPlayTimeChanged(int positionInMilliseconds) {
+
+    }
+
+    public void destory() {
+
+        if (SHOW_LOGS)
+            Logger.v(TAG, ">> destory, mCurrentPlayerState " + mCurrentPlayerState);
+
+        mPlayerHandler.pauseQueueProcessing(TAG);
+        if (SHOW_LOGS) Logger.v(TAG, "destory, mCurrentPlayerState " + mCurrentPlayerState);
+
+
+        mPlayerHandler.clearAllPendingMessages(TAG);
+        mDestory = true;
+        stopResetReleaseClearCurrentPlayer();
+        mCurrentPlayer = null;
+        mPlayerHandler.resumeQueueProcessing(TAG);
+
+        if (SHOW_LOGS)
+            Logger.v(TAG, "<< destory, mCurrentPlayerState " + mCurrentPlayerState);
 
     }
 }

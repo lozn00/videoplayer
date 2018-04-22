@@ -13,7 +13,7 @@ public abstract class PlayerMessage implements Message {
 
     private static final String TAG = PlayerMessage.class.getSimpleName();
     private static final boolean SHOW_LOGS = Config.SHOW_LOGS;
-    private final VideoPlayerView mCurrentPlayer;
+    private  VideoPlayerView mCurrentPlayer;
     private final VideoPlayerManagerCallback mCallback;
 
     public PlayerMessage(VideoPlayerView currentPlayer, VideoPlayerManagerCallback callback) {
@@ -21,6 +21,9 @@ public abstract class PlayerMessage implements Message {
         mCallback = callback;
     }
 
+    public void clear(){
+        mCurrentPlayer=null;
+    }
     protected final PlayerMessageState getCurrentState(){
         return mCallback.getCurrentPlayerState();
     }

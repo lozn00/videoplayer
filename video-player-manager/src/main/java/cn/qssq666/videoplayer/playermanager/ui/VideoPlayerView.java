@@ -14,17 +14,17 @@ import android.util.Log;
 import android.view.TextureView;
 import android.view.View;
 
-
 import com.volokh.danylo.video_player_manager.BuildConfig;
-import cn.qssq666.videoplayer.playermanager.Config;
-import cn.qssq666.videoplayer.playermanager.utils.HandlerThreadExtension;
-import cn.qssq666.videoplayer.playermanager.utils.Logger;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+
+import cn.qssq666.videoplayer.playermanager.Config;
+import cn.qssq666.videoplayer.playermanager.utils.HandlerThreadExtension;
+import cn.qssq666.videoplayer.playermanager.utils.Logger;
 
 /**
  * This is player implementation based on {@link TextureView}
@@ -166,8 +166,11 @@ public class VideoPlayerView extends ScalableTextureView
 
         synchronized (mReadyForPlaybackIndicator) {
             mReadyForPlaybackIndicator.setVideoSize(null, null);
-            mMediaPlayer.clearAll();
-            mMediaPlayer = null;
+            if (mMediaPlayer != null) {
+                mMediaPlayer.clearAll();
+
+                mMediaPlayer = null;
+            }
         }
 
         if (SHOW_LOGS) Logger.v(TAG, "<< clearPlayerInstance");
@@ -193,10 +196,15 @@ public class VideoPlayerView extends ScalableTextureView
                 if (SHOW_LOGS) Logger.v(TAG, "texture " + texture);
                 mMediaPlayer.setSurfaceTexture(texture);
             } else {
-                if (SHOW_LOGS) Logger.v(TAG, "texture not available");
+                if (SHOW_LOGS){
+                    Logger.w(TAG, "texture not available wait setSurfaceTexture");
+
+                }
             }
             mMediaPlayer.setMainThreadMediaPlayerListener(this);
             mMediaPlayer.setVideoStateListener(this);
+
+
         }
         if (SHOW_LOGS) Logger.v(TAG, "<< createNewPlayerInstance");
     }
@@ -240,11 +248,11 @@ public class VideoPlayerView extends ScalableTextureView
             } else {
                 if (SHOW_LOGS) Logger.v(TAG, "start, >> wait");
                 if (!mReadyForPlaybackIndicator.isFailedToPrepareUiForPlayback()) {
-                    try {
+               /*     try {
                         mReadyForPlaybackIndicator.wait();
                     } catch (InterruptedException e) {
                         throw new RuntimeException(e);
-                    }
+                    }*/
 
                     if (SHOW_LOGS) Logger.v(TAG, "start, << wait");
 
@@ -695,7 +703,10 @@ public class VideoPlayerView extends ScalableTextureView
 
         if (SHOW_LOGS) Logger.d(TAG, ">> pause ");
         synchronized (mReadyForPlaybackIndicator) {
+
+//            mReadyForPlaybackIndicator.setFailedToPrepareUiForPlayback(false);
             mMediaPlayer.pause();
+
         }
         if (SHOW_LOGS) Logger.d(TAG, "<< pause");
     }

@@ -1,7 +1,6 @@
 package cn.qssq666.videoplayer.playermanager;
 
-import cn.qssq666.videoplayer.playermanager.player_messages.Message;
-import cn.qssq666.videoplayer.playermanager.utils.Logger;
+import com.volokh.danylo.video_player_manager.BuildConfig;
 
 import java.util.List;
 import java.util.Queue;
@@ -10,10 +9,13 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import cn.qssq666.videoplayer.playermanager.player_messages.Message;
+import cn.qssq666.videoplayer.playermanager.utils.Logger;
+
 /**
  * This class is designed to process a message queue.
  * It calls very specific methods of {@link Message} in very specific times.
- *
+ * <p>
  * 1. When message is polled from queue it calls {@link Message#polledFromQueue()}
  * 2. When message should be run it calls {@link Message#runMessage()}
  * 3. When message finished running it calls {@link Message#messageFinished()}
@@ -66,6 +68,15 @@ public class MyMessagesHandlerThread {
 
                 } while (!mTerminated.get());
 
+                if (BuildConfig.DEBUG) {
+
+
+                    if (SHOW_LOGS) {
+                        Logger.d(TAG, "消息队列已经停止,将不能收到任何消息 " + mLastMessage);
+                    }
+
+                }
+
             }
         });
     }
@@ -73,7 +84,7 @@ public class MyMessagesHandlerThread {
     /**
      * Use it if you need to add a single message
      */
-    public void addMessage(Message message){
+    public void addMessage(Message message) {
 
         if (SHOW_LOGS) Logger.v(TAG, ">> addMessage, lock " + message);
         mQueueLock.lock(TAG);
@@ -99,28 +110,33 @@ public class MyMessagesHandlerThread {
         mQueueLock.unlock(TAG);
     }
 
-    public void pauseQueueProcessing(String outer){
-        if (SHOW_LOGS) Logger.v(TAG, "pauseQueueProcessing, lock " + mQueueLock);
+    public void pauseQueueProcessing(String outer) {
+        if (SHOW_LOGS)
+            Logger.d(TAG, "pauseQueueProcessing, lock " + mQueueLock);
         mQueueLock.lock(outer);
     }
 
-    public void resumeQueueProcessing(String outer){
-        if (SHOW_LOGS) Logger.v(TAG, "resumeQueueProcessing, unlock " + mQueueLock);
+    public void resumeQueueProcessing(String outer) {
+        if (SHOW_LOGS) {
+            Logger.d(TAG, "resumeQueueProcessing, unlock " + mQueueLock);
+        }
         mQueueLock.unlock(outer);
     }
 
     public void clearAllPendingMessages(String outer) {
-        if (SHOW_LOGS) Logger.v(TAG, ">> clearAllPendingMessages, mPlayerMessagesQueue " + mPlayerMessagesQueue);
+        if (SHOW_LOGS)
+            Logger.v(TAG, ">> clearAllPendingMessages, mPlayerMessagesQueue " + mPlayerMessagesQueue);
 
-        if(mQueueLock.isLocked(outer)){
+        if (mQueueLock.isLocked(outer)) {
             mPlayerMessagesQueue.clear();
         } else {
             throw new RuntimeException("cannot perform action, you are not holding a lock");
         }
-        if (SHOW_LOGS) Logger.v(TAG, "<< clearAllPendingMessages, mPlayerMessagesQueue " + mPlayerMessagesQueue);
+        if (SHOW_LOGS)
+            Logger.v(TAG, "<< clearAllPendingMessages, mPlayerMessagesQueue " + mPlayerMessagesQueue);
     }
 
-    public void terminate(){
+    public void terminate() {
         mTerminated.set(true);
     }
 }

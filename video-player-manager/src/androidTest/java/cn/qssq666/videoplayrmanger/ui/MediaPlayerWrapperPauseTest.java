@@ -3,13 +3,13 @@ package cn.qssq666.videoplayrmanger.ui;
 import android.content.res.AssetFileDescriptor;
 import android.os.ParcelFileDescriptor;
 
-import cn.qssq666.videoplayer.playermanager.Config;
-import cn.qssq666.videoplayer.playermanager.ui.MediaPlayerWrapper;
-import cn.qssq666.videoplayer.playermanager.utils.Logger;
-
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+
+import cn.qssq666.videoplayer.playermanager.Config;
+import cn.qssq666.videoplayer.playermanager.ui.MediaPlayerWrapper;
+import cn.qssq666.videoplayer.playermanager.utils.Logger;
 
 import static junit.framework.Assert.assertEquals;
 
@@ -90,6 +90,23 @@ public class MediaPlayerWrapperPauseTest {
         assertEquals(MediaPlayerWrapper.State.STOPPED, mMediaPlayerWrapper.getCurrentState());
 
         mMediaPlayerWrapper.pause();
+        mMediaPlayerWrapper.stop();
+
+        mMediaPlayerWrapper.pause();
+        mMediaPlayerWrapper.stop();
+        mMediaPlayerWrapper.pause();
+        mMediaPlayerWrapper.stop();
+        mMediaPlayerWrapper.pause();
+        mMediaPlayerWrapper.stop();
+        mMediaPlayerWrapper.pause();
+        mMediaPlayerWrapper.stop();
+        mMediaPlayerWrapper.pause();
+        mMediaPlayerWrapper.stop();
+        mMediaPlayerWrapper.pause();
+        mMediaPlayerWrapper.stop();
+        mMediaPlayerWrapper.pause();
+        mMediaPlayerWrapper.stop();
+
     }
 
     @Test(expected = IllegalStateException.class)
