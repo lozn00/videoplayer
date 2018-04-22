@@ -357,7 +357,7 @@ public class SingleVideoPlayerManager implements VideoPlayerManager<MetaData>, V
 
         mPlayerHandler.addMessage(new Pause(mCurrentPlayer, this));
         if (SHOW_LOGS) {
-            Logger.v(TAG, "Pause, mCurrentPlayerState " + getCurrentPlayerState());
+            Logger.v(TAG, "Pause msg sender, mCurrentPlayerState " + getCurrentPlayerState());
         }
         mPlayerHandler.resumeQueueProcessing(TAG);
     }

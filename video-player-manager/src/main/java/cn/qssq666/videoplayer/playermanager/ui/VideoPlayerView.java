@@ -400,7 +400,7 @@ public class VideoPlayerView extends ScalableTextureView
 
 
     private void notifyVideoPlayTimeUpdateMainThread(int positionInMilliseconds) {
-        if (SHOW_LOGS) Logger.v(TAG, "notifyOnVideoStopped");
+        if (SHOW_LOGS) Logger.v(TAG, "notifyVideoPlayTimeUpdateMainThread");
         List<MediaPlayerWrapper.VideoStateListener> listCopy;
         synchronized (mVideoUpdateMainThreadListeners) {
             listCopy = new ArrayList<>(mVideoUpdateMainThreadListeners);
