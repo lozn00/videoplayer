@@ -4,6 +4,8 @@ import android.content.res.AssetFileDescriptor;
 import android.media.MediaPlayer;
 import android.util.Log;
 
+import com.volokh.danylo.video_player_manager.BuildConfig;
+
 import java.util.Arrays;
 
 import cn.qssq666.videoplayer.playermanager.Config;
@@ -32,7 +34,8 @@ import cn.qssq666.videoplayer.playermanager.utils.Logger;
  * If new video should start playback this implementation previously stops currently playing video
  * and then starts new playback.
  */
-public class SingleVideoPlayerManager implements VideoPlayerManager<MetaData>, VideoPlayerManagerCallback, MediaPlayerWrapper.MainThreadMediaPlayerListener, MediaPlayerWrapper.VideoStateListener {
+public class SingleVideoPlayerManager<T extends MetaData> implements VideoPlayerManager<T>,
+        VideoPlayerManagerCallback, MediaPlayerWrapper.MainThreadMediaPlayerListener, MediaPlayerWrapper.VideoStateListener {
 
     private static final String TAG = SingleVideoPlayerManager.class.getSimpleName();
     private static final boolean SHOW_LOGS = Config.SHOW_LOGS;
@@ -135,7 +138,7 @@ public class SingleVideoPlayerManager implements VideoPlayerManager<MetaData>, V
      * @param assetFileDescriptor - the asset descriptor for source file
      */
     @Override
-    public void playNewVideo(MetaData currentItemMetaData, VideoPlayerView videoPlayerView, AssetFileDescriptor assetFileDescriptor) {
+    public void playNewVideo(MetaData currentItemMetaData, VideoPlayerView videoPlayerView, String uuid, AssetFileDescriptor assetFileDescriptor) {
         if (SHOW_LOGS)
             Logger.v(TAG, ">> playNewVideo, videoPlayer " + videoPlayerView + ", mCurrentPlayer " + mCurrentPlayer + ", assetFileDescriptor " + assetFileDescriptor);
         if (SHOW_LOGS) Logger.v(TAG, "playNewVideo, currentItemMetaData " + currentItemMetaData);
@@ -160,11 +163,11 @@ public class SingleVideoPlayerManager implements VideoPlayerManager<MetaData>, V
                 /** 3. */
             } else {
                 /** 4. */
-                startNewPlayback(currentItemMetaData, videoPlayerView, assetFileDescriptor);
+                startNewPlayback(currentItemMetaData, videoPlayerView, uuid, assetFileDescriptor);
             }
         } else {
             /** 4. */
-            startNewPlayback(currentItemMetaData, videoPlayerView, assetFileDescriptor);
+            startNewPlayback(currentItemMetaData, videoPlayerView, uuid, assetFileDescriptor);
         }
 
         /** 5. */
@@ -196,11 +199,11 @@ public class SingleVideoPlayerManager implements VideoPlayerManager<MetaData>, V
      * @param assetFileDescriptor
      */
     //https://blog.csdn.net/jdsjlzx/article/details/50615514
-    private void startNewPlayback(MetaData currentItemMetaData, VideoPlayerView videoPlayerView, AssetFileDescriptor assetFileDescriptor) {
+    private void startNewPlayback(MetaData currentItemMetaData, VideoPlayerView videoPlayerView, String uuid, AssetFileDescriptor assetFileDescriptor) {
         // set listener for new player
         // TODO: find a place when we can remove this listener.
         videoPlayerView.addMediaPlayerListener(this);
-        videoPlayerView.addVidoeProgressUpdateListener(this);
+        videoPlayerView.addVideoProgressUpdateListener(this);
         if (SHOW_LOGS)
             Logger.v(TAG, "startNewPlayback, mCurrentPlayerState " + mCurrentPlayerState);
 
@@ -211,18 +214,18 @@ public class SingleVideoPlayerManager implements VideoPlayerManager<MetaData>, V
         /** 3. */
         setNewViewForPlayback(currentItemMetaData, videoPlayerView);
         /** 4. */
-        startPlayback(videoPlayerView, assetFileDescriptor);
+        startPlayback(videoPlayerView, uuid, assetFileDescriptor);
     }
 
     /**
-     * This is copy paste of {@link #startNewPlayback(MetaData, VideoPlayerView, AssetFileDescriptor)}
+     * This is copy paste of {@link #startNewPlayback(MetaData, VideoPlayerView, String, AssetFileDescriptor)} )}
      * The difference is that this method uses AssetFileDescriptor instead of direct path
      */
     private void startNewPlayback(MetaData currentItemMetaData, VideoPlayerView videoPlayerView, String videoUrl) {
         // set listener for new player
         // TODO: find a place when we have to remove this listener.
         videoPlayerView.addMediaPlayerListener(this);
-        videoPlayerView.addVidoeProgressUpdateListener(this);
+        videoPlayerView.addVideoProgressUpdateListener(this);
         if (SHOW_LOGS)
             Logger.v(TAG, "startNewPlayback, mCurrentPlayerState " + mCurrentPlayerState);
 
@@ -330,7 +333,8 @@ public class SingleVideoPlayerManager implements VideoPlayerManager<MetaData>, V
 
     @Override
     public boolean isPause() {
-        if (getCurrentPlayerState() == PlayerMessageState.PAUSED || getCurrentPlayerState() == PlayerMessageState.PAUSING) {
+        if (getCurrentPlayerState() == PlayerMessageState.PAUSED) {
+//        if (getCurrentPlayerState() == PlayerMessageState.PAUSED || getCurrentPlayerState() == PlayerMessageState.PAUSING) {
             return true;
         }
 
@@ -339,7 +343,8 @@ public class SingleVideoPlayerManager implements VideoPlayerManager<MetaData>, V
 
     @Override
     public boolean isPlay() {
-        if (getCurrentPlayerState() == PlayerMessageState.PREPARED || getCurrentPlayerState() == PlayerMessageState.STARTED|| getCurrentPlayerState() == PlayerMessageState.STARTING) {
+        if (getCurrentPlayerState() == PlayerMessageState.STARTED) {
+//        if (getCurrentPlayerState() == PlayerMessageState.PREPARED || getCurrentPlayerState() == PlayerMessageState.STARTED || getCurrentPlayerState() == PlayerMessageState.STARTING) {
             return true;
         }
         return false;
@@ -380,12 +385,13 @@ public class SingleVideoPlayerManager implements VideoPlayerManager<MetaData>, V
         ));
     }
 
-    private void startPlayback(VideoPlayerView videoPlayerView, AssetFileDescriptor assetFileDescriptor) {
+
+    private void startPlayback(VideoPlayerView videoPlayerView, String uuid, AssetFileDescriptor assetFileDescriptor) {
         if (SHOW_LOGS) Logger.v(TAG, "startPlayback");
 
         mPlayerHandler.addMessages(Arrays.asList(
                 new CreateNewPlayerInstance(videoPlayerView, this),
-                new SetAssetsDataSourceMessage(videoPlayerView, assetFileDescriptor, this),
+                new SetAssetsDataSourceMessage(videoPlayerView, uuid, assetFileDescriptor, this),
                 new Prepare(videoPlayerView, this),
                 new Start(videoPlayerView, this)
         ));
@@ -423,6 +429,14 @@ public class SingleVideoPlayerManager implements VideoPlayerManager<MetaData>, V
 
             case CLEARING_PLAYER_INSTANCE:
             case PLAYER_INSTANCE_CLEARED:
+                if (mDestory) {
+
+                    if (BuildConfig.DEBUG) {
+                        Log.e(TAG, "可能存在的内存泄露 清理播放器");
+                    }
+                    mPlayerHandler.addMessage(new ClearPlayerInstance(mCurrentPlayer, this));
+
+                }
                 // in these states player is stopped
                 break;
             case INITIALIZED:
@@ -432,6 +446,7 @@ public class SingleVideoPlayerManager implements VideoPlayerManager<MetaData>, V
             case STARTED:
             case PAUSING:
             case PAUSED:
+
                 mPlayerHandler.addMessage(new Stop(mCurrentPlayer, this));
                 //FALL-THROUGH
 
@@ -455,13 +470,14 @@ public class SingleVideoPlayerManager implements VideoPlayerManager<MetaData>, V
 
                 break;
             case DESTORY_THREAD_AND_PLAYER:
-
                 break;
             case END:
                 throw new RuntimeException("unhandled " + mCurrentPlayerState);
         }
 
         if (mDestory) {
+
+
             mPlayerHandler.addMessage(new ClearPlayerInstanceAndDestoryThread(mCurrentPlayer, this, mPlayerHandler));
         }
     }
@@ -580,43 +596,50 @@ public class SingleVideoPlayerManager implements VideoPlayerManager<MetaData>, V
 
     @Override
     public void onBufferingUpdateMainThread(int percent) {
+
+        if (SHOW_LOGS) Logger.v(TAG, "onBufferingUpdateMainThread, precent " + percent);
     }
 
     @Override
     public void onVideoStoppedMainThread() {
 
+        if (SHOW_LOGS) Logger.v(TAG, "onVideoStoppedMainThread ");
     }
 
     @Override
     public void onPrepared(MediaPlayer mp) {
-
+        if (SHOW_LOGS) Logger.v(TAG, "onPrepared ");
     }
 
     @Override
     public void onPrepare() {
-
+        if (SHOW_LOGS) Logger.v(TAG, "onPrepare ");
     }
 
     @Override
     public void onVideoPausedMainThread() {
-
+        if (SHOW_LOGS) Logger.v(TAG, "onVideoPausedMainThread ");
     }
 
     @Override
     public void onVideoStartedMainThread() {
-
+        if (SHOW_LOGS) Logger.v(TAG, "onVideoStartedMainThread ");
     }
 
     @Override
     public void onInfo(MediaPlayer mp, int what, int extra) {
-
+        if (SHOW_LOGS) Logger.v(TAG, "onInfo what " + what + ",extra:" + extra);
     }
 
     @Override
     public void onVideoPlayTimeChanged(int positionInMilliseconds) {
-
+        if (videoStateListener != null) {
+            videoStateListener.onVideoPlayTimeChanged(positionInMilliseconds);
+        }
+        if (SHOW_LOGS) Logger.v(TAG, "onVideoPlayTimeChanged " + positionInMilliseconds);
     }
 
+    @Override
     public void destory() {
 
         if (SHOW_LOGS)
@@ -630,10 +653,37 @@ public class SingleVideoPlayerManager implements VideoPlayerManager<MetaData>, V
         mDestory = true;
         stopResetReleaseClearCurrentPlayer();
         mCurrentPlayer = null;
+        this.videoStateListener = null;
         mPlayerHandler.resumeQueueProcessing(TAG);
 
         if (SHOW_LOGS)
             Logger.v(TAG, "<< destory, mCurrentPlayerState " + mCurrentPlayerState);
 
     }
+
+    @Override
+    public void onPause() {
+
+
+        if (isPlay()) {
+            pause();
+        }
+    }
+
+    @Override
+    public void onResume() {
+
+        if (!isPlay() && isPause()) {
+            continuePlay();
+
+        }
+
+    }
+
+    public void setVideoStateListener(MediaPlayerWrapper.VideoStateListener videoStateListener) {
+        this.videoStateListener = videoStateListener;
+    }
+
+    MediaPlayerWrapper.VideoStateListener videoStateListener;
+
 }

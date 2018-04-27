@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout
+
+
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+
+    android:layout_height="match_parent"
+    android:background="#afa">
+
+
+    <cn.qssq666.videoplayerdemo.fullscreen1.AutoPlayVideoView
+        android:id="@+id/auto_playview"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_margin="10dp"
+
+        android:visibility="visible">
+
+
+    </cn.qssq666.videoplayerdemo.fullscreen1.AutoPlayVideoView>
+
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        android:layout_gravity="center"
+        android:text="测试"
+        android:textColor="#FFF" />
+</FrameLayout>

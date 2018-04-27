@@ -3,6 +3,7 @@ package cn.qssq666.videoplayer.playermanager.ui;
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
 import android.graphics.SurfaceTexture;
+import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Handler;
@@ -28,6 +29,8 @@ import cn.qssq666.videoplayer.playermanager.utils.Logger;
  * http://developer.android.com/reference/android/media/MediaPlayer.html
  */
 public abstract class MediaPlayerWrapper
+
+
         implements MediaPlayer.OnErrorListener,
         MediaPlayer.OnBufferingUpdateListener,
         MediaPlayer.OnInfoListener,
@@ -35,27 +38,34 @@ public abstract class MediaPlayerWrapper
         MediaPlayer.OnVideoSizeChangedListener, MediaPlayer.OnPreparedListener {
 
     public static final int ERROR_CODE_SET_SURFACE_FAIL = 9500;
+    private Context context;
     private String TAG;
     private static final boolean SHOW_LOGS = Config.SHOW_LOGS;
 
     public static final int POSITION_UPDATE_NOTIFYING_PERIOD = 1000;         // milliseconds
     private ScheduledFuture<?> mFuture;
     private Surface mSurface;
-    private String mVideo;
+
+    public void setVideoUUID(String mVideo) {
+        this.mVideoUUID = mVideo;
+    }
+
+    private String mVideoUUID = "";
+    private boolean enterTempPauseMode;
+
 
     @Override
     public void onPrepared(MediaPlayer mp) {
         if (mListener != null) {
             mListener.onPrepared(mp);
         }
-        startProgressListener();
     }
 
     public boolean isCurrent(String video) {
-        if (mVideo == null) {
+        if (mVideoUUID == null) {
             return false;
         }
-        if (video.equals(mVideo)) {
+        if (video.equals(mVideoUUID)) {
 
             return true;
         }
@@ -82,14 +92,14 @@ public abstract class MediaPlayerWrapper
     }
 
     private final MediaPlayer mMediaPlayer;
-    private final AtomicReference<State> mState = new AtomicReference<>();
+    private final AtomicReference<State> mState = new AtomicReference<>();//https://www.cnblogs.com/charlesblc/p/5994162.html 这里是重量级所
 
     private MainThreadMediaPlayerListener mListener;
     private VideoStateListener mVideoStateListener;
 
     private ScheduledExecutorService mPositionUpdateNotifier = Executors.newScheduledThreadPool(1);
 
-    protected MediaPlayerWrapper(MediaPlayer mediaPlayer) {
+    protected MediaPlayerWrapper(Context context, MediaPlayer mediaPlayer) {
         TAG = "" + this;
         if (SHOW_LOGS) Logger.v(TAG, "constructor of MediaPlayerWrapper");
         if (SHOW_LOGS)
@@ -98,8 +108,16 @@ public abstract class MediaPlayerWrapper
             Logger.v(TAG, "constructor of MediaPlayerWrapper, my Looper " + Looper.myLooper());
 
         if (Looper.myLooper() != null) {
-            throw new RuntimeException("myLooper not null, a bug in some MediaPlayer implementation cause that listeners are not called at all. Please use a thread without Looper");
+
+            if (!Config.ENABLE_THROW_ERR) {
+                notifyErrorCallBack("my looper not null ,a bug in some mediaplayer implementation cause that listeners are not called at all please use a threa without looper ");
+
+            } else {
+                throw new RuntimeException("myLooper not null, a bug in some MediaPlayer implementation cause that listeners are not called at all. Please use a thread without Looper");
+
+            }
         }
+        this.context = context;
         mMediaPlayer = mediaPlayer;
 
         mState.set(State.IDLE);
@@ -109,6 +127,71 @@ public abstract class MediaPlayerWrapper
         mMediaPlayer.setOnErrorListener(this);
         mMediaPlayer.setOnBufferingUpdateListener(this);
         mMediaPlayer.setOnInfoListener(this);
+
+
+    }
+
+    private AudioManager.OnAudioFocusChangeListener focusChangeListener =
+            new AudioManager.OnAudioFocusChangeListener() {
+
+                public void onAudioFocusChange(int focusChange) {
+
+                    if (SHOW_LOGS)
+                        Logger.v(TAG, "onAudioFocusChange focusChange " + focusChange);
+
+
+                    if (true) {
+                        return;
+                    }
+
+                    switch (focusChange) {
+                        case (AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK):
+                            ;//PauseLogic();
+                            break;
+                        case (AudioManager.AUDIOFOCUS_LOSS_TRANSIENT):
+                            ;//PauseLogic();
+                            break;
+                        case (AudioManager.AUDIOFOCUS_LOSS):
+                            doTempPauseLogic();
+                            break;
+
+                        case (AudioManager.AUDIOFOCUS_GAIN):
+                            doTempContinueLogic();
+                            break;
+
+                        default:
+                            break;
+
+                    }
+                }
+            };
+
+
+    private void doTempContinueLogic() {
+        if (isPlayCheck()) {//如果是暂停的 而且是临时暂停模式
+
+            start();
+            //enterTempPauseMode 进入了这个模式怎么退出呢？只能用户操作的时候退出了，
+        }
+    }
+
+    public boolean isPlayCheck() {
+        return getCurrentState() == State.STARTED || getCurrentState() == State.PREPARED;
+    }
+
+    public boolean isPauseCheck() {
+        return getCurrentState() == State.PAUSED;
+    }
+
+    private void doTempPauseLogic() {
+        if (isPlayCheck()) {
+            enterTempPauseMode = true;
+            pause();
+        } else {//如果你手动暂停了 且已经 进入了临时模式 我不管， 如果你在播放 ，那么照样走上面的逻辑。只要你暂停了 ，我就会取消临时模式 这样就保证不会再别的app暂停的情况下又收到的开始的。然后本来暂停的音乐又开始播放了。
+            if (enterTempPauseMode) {
+                enterTempPauseMode = false;
+            }
+        }
     }
 
     private final Runnable mOnVideoPreparedMessage = new Runnable() {
@@ -135,6 +218,8 @@ public abstract class MediaPlayerWrapper
 
 
     public void prepare() {
+
+
         if (SHOW_LOGS) Logger.v(TAG, ">> prepare, mState " + mState);
 
         synchronized (mState) {
@@ -147,8 +232,9 @@ public abstract class MediaPlayerWrapper
                             mMainThreadHandler.post(mOnVideoPrepareMessage);
                         }
 
-
+                        requestAudioFocus(context);
                         mMediaPlayer.prepare();
+
                         mState.set(State.PREPARED);
 
                         if (mListener != null) {
@@ -157,7 +243,15 @@ public abstract class MediaPlayerWrapper
 
                     } catch (IllegalStateException ex) {
                         /** we should not call {@link MediaPlayerWrapper#prepare()} in wrong state so we fall here*/
-                        throw new RuntimeException(ex);
+                        if (!Config.ENABLE_THROW_ERR) {
+                            notifyErrorCallBack("prepare fail state " + mState + "," + ex.toString());
+                            onPrepareError(new IOException("prepare fail state " + ex.toString()));
+
+                            return;
+                        } else {
+
+                            throw new RuntimeException(ex);
+                        }
 
                     } catch (IOException ex) {
                         onPrepareError(ex);
@@ -172,10 +266,33 @@ public abstract class MediaPlayerWrapper
                 case PLAYBACK_COMPLETED:
                 case END:
                 case ERROR:
-                    throw new IllegalStateException("prepare, called from illegal state " + mState);
+                    if (!Config.ENABLE_THROW_ERR) {
+                        notifyErrorCallBack("prepare called from illegal state " + mState);
+
+                    } else {
+                        throw new IllegalStateException("prepare, called from illegal state " + mState);
+
+                    }
             }
         }
         if (SHOW_LOGS) Logger.v(TAG, "<< prepare, mState " + mState);
+    }
+
+
+    public boolean requestAudioFocus(Context context) {
+        AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+
+        return AudioManager.AUDIOFOCUS_REQUEST_GRANTED == audioManager.requestAudioFocus(focusChangeListener,
+                // Use the music stream.
+                AudioManager.STREAM_MUSIC,
+                // Request permanent focus.
+                AudioManager.AUDIOFOCUS_GAIN);
+    }
+
+
+    public void abandonAudioFocus(Context context) {
+        AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+        audioManager.abandonAudioFocus(focusChangeListener);
     }
 
 
@@ -201,15 +318,6 @@ public abstract class MediaPlayerWrapper
         }
     };*/
 
-    public void startProgressListener() {
-        clearProgressListener();
-//        mMainThreadHandler.postDelayed(progressRunnable, 1000);
-    }
-
-    public void clearProgressListener() {
-//        mMainThreadHandler.removeCallbacks(progressRunnable);
-    }
-
 
     /**
      * This method propagates error when {@link IOException} is thrown during synchronous {@link #prepare()}
@@ -217,7 +325,6 @@ public abstract class MediaPlayerWrapper
      * @param ex
      */
     private void onPrepareError(IOException ex) {
-        clearProgressListener();
         if (SHOW_LOGS) Logger.err(TAG, "catch IO exception [" + ex + "]");
         // might happen because of lost internet connection
 //      TODO: if (SHOW_LOGS) Logger.err(TAG, "catch exception, is Network Connected [" + Utils.isNetworkConnected());
@@ -248,8 +355,22 @@ public abstract class MediaPlayerWrapper
 
             switch (mState.get()) {
                 case IDLE:
-                    mVideo = filePath;
-                    mMediaPlayer.setDataSource(filePath);
+                    mVideoUUID = filePath;
+
+                    try {
+
+                        mMediaPlayer.setDataSource(filePath);
+
+                    } catch (Exception e) {
+
+                        if (!Config.ENABLE_THROW_ERR) {
+                            notifyErrorCallBack("ssetDataSource called  " + mState + "," + e.toString());
+
+                        } else {
+                            throw new IllegalStateException("setDataSource called  " + mState + "," + e.toString());
+                        }
+
+                    }
                     mState.set(State.INITIALIZED);
                     break;
                 case INITIALIZED:
@@ -262,9 +383,22 @@ public abstract class MediaPlayerWrapper
                 case END:
                 case ERROR:
                 default:
-                    throw new IllegalStateException("setDataSource called in state " + mState);
+                    if (!Config.ENABLE_THROW_ERR) {
+                        notifyErrorCallBack("setDataSource called in state " + mState);
+
+                    } else {
+                        throw new IllegalStateException("setDataSource called in state " + mState);
+                    }
             }
         }
+    }
+
+    public void notifyErrorCallBack(String s) {
+
+        if (SHOW_LOGS) {
+            Logger.err(TAG, s, new Throwable());
+        }
+
     }
 
     /**
@@ -274,6 +408,8 @@ public abstract class MediaPlayerWrapper
         synchronized (mState) {
             switch (mState.get()) {
                 case IDLE:
+
+                    mVideoUUID = assetFileDescriptor.getFileDescriptor().toString();
                     mMediaPlayer.setDataSource(
                             assetFileDescriptor.getFileDescriptor(),
                             assetFileDescriptor.getStartOffset(),
@@ -290,7 +426,13 @@ public abstract class MediaPlayerWrapper
                 case END:
                 case ERROR:
                 default:
-                    throw new IllegalStateException("setDataSource called in state " + mState);
+                    if (!Config.ENABLE_THROW_ERR) {
+                        notifyErrorCallBack("setDataSource called in state " + mState);
+
+                    } else {
+                        throw new IllegalStateException("setDataSource called in state " + mState);
+
+                    }
             }
         }
     }
@@ -299,6 +441,8 @@ public abstract class MediaPlayerWrapper
     public void onVideoSizeChanged(MediaPlayer mp, int width, int height) {
         if (SHOW_LOGS) Logger.v(TAG, "onVideoSizeChanged, width " + width + ", height " + height);
         if (!inUiThread()) {
+
+
             throw new RuntimeException("this should be called in Main Thread");
         }
         if (mListener != null) {
@@ -308,7 +452,6 @@ public abstract class MediaPlayerWrapper
 
     @Override
     public void onCompletion(MediaPlayer mp) {
-        clearProgressListener();
         if (SHOW_LOGS) Logger.v(TAG, "onVideoCompletion, mState " + mState);
 
         synchronized (mState) {
@@ -334,11 +477,17 @@ public abstract class MediaPlayerWrapper
         if (SHOW_LOGS) Logger.v(TAG, "onErrorMainThread, what " + what + ", extra " + extra);
 
 
-        clearProgressListener();
         synchronized (mState) {//TODO 死机无响应了.
             mState.set(State.ERROR);
         }
 
+        doOnErrorLogic(what, extra);
+        // We always return true, because after Error player stays in this state.
+        // See here http://developer.android.com/reference/android/media/MediaPlayer.html
+        return true;
+    }
+
+    private void doOnErrorLogic(int what, int extra) {
         if (positionUpdaterIsWorking()) {
             stopPositionUpdateNotifier();
         }
@@ -347,9 +496,6 @@ public abstract class MediaPlayerWrapper
         if (mListener != null) {
             mListener.onErrorMainThread(what, extra);
         }
-        // We always return true, because after Error player stays in this state.
-        // See here http://developer.android.com/reference/android/media/MediaPlayer.html
-        return true;
     }
 
     private boolean positionUpdaterIsWorking() {
@@ -440,14 +586,18 @@ public abstract class MediaPlayerWrapper
                 case INITIALIZED:
                 case PREPARING:
                 case STARTED:
-//                    throw new IllegalStateException("start, called from illegal state " + mState);
+                    if (!Config.ENABLE_THROW_ERR) {
+                        notifyErrorCallBack("start called from illegal state called in state " + mState);
 
-                    if (mListener != null) {
-                        mMainThreadHandler.post(mOnVideoStartMessage);
+                        break;
+                    } else {
+                        throw new IllegalStateException("start, called from illegal state " + mState);
+
                     }
 
-                    mMediaPlayer.start();
-                    break;
+/*
+                    requestAudioFocus(context);
+                    mMediaPlayer.start();*/
                 case STOPPED:
                 case PLAYBACK_COMPLETED:
                 case PREPARED:
@@ -455,18 +605,26 @@ public abstract class MediaPlayerWrapper
 
                     if (SHOW_LOGS)
                         Logger.v(TAG, "start, video is " + mState + ", starting playback.");
+                    requestAudioFocus(context);
                     mMediaPlayer.start();
                     if (mListener != null) {
                         mMainThreadHandler.post(mOnVideoStartMessage);
                     }
-                    startProgressListener();
                     startPositionUpdateNotifier();
                     mState.set(State.STARTED);
 
                     break;
                 case ERROR:
                 case END:
-                    throw new IllegalStateException("start, called from illegal state " + mState);
+
+                    if (!Config.ENABLE_THROW_ERR) {
+                        notifyErrorCallBack("start,called from illegal state " + mState);
+
+                    } else {
+                        throw new IllegalStateException("start, called from illegal state " + mState);
+
+                    }
+
             }
         }
         if (SHOW_LOGS) Logger.v(TAG, "<< start");
@@ -492,11 +650,11 @@ public abstract class MediaPlayerWrapper
                 case STOPPED:
                 case PREPARED:
                 case END:
-                    Log.e(TAG,"pause FAIL not support state "+mState);
-                    return;
+                    Log.e(TAG, "pause FAIL not support state " + mState);
+                    break;
 
                 case STARTED:
-                    clearProgressListener();
+                    abandonAudioFocus(context);
                     mMediaPlayer.pause();
                     if (mListener != null) {
                         mMainThreadHandler.post(mOnVideoPauseMessage);
@@ -553,8 +711,8 @@ public abstract class MediaPlayerWrapper
                 case PREPARED:
                 case PREPARING: // This is evaluation of http://developer.android.com/reference/android/media/MediaPlayer.html. Canot stop when preparing
 
-                    clearProgressListener();
                     if (SHOW_LOGS) Logger.v(TAG, ">> stop");
+                    abandonAudioFocus(context);
                     mMediaPlayer.stop();
 
                     if (SHOW_LOGS) Logger.v(TAG, "<< stop");
@@ -566,7 +724,14 @@ public abstract class MediaPlayerWrapper
                     }
                     break;
                 case STOPPED:
-                    throw new IllegalStateException("stop, already stopped");
+                    if (!Config.ENABLE_THROW_ERR) {
+                        notifyErrorCallBack("sstop, already stopped state " + mState);
+
+                        return;
+                    } else {
+
+                        throw new IllegalStateException("stop, already stopped");
+                    }
 
                 case IDLE:
                 case INITIALIZED:
@@ -591,13 +756,18 @@ public abstract class MediaPlayerWrapper
                 case STOPPED:
                 case PLAYBACK_COMPLETED:
                 case ERROR:
-                    clearProgressListener();
                     mMediaPlayer.reset();
                     mState.set(State.IDLE);
                     break;
                 case PREPARING:
                 case END:
-                    throw new IllegalStateException("cannot call reset from state " + mState.get());
+                    if (!Config.ENABLE_THROW_ERR) {
+                        notifyErrorCallBack("canot call reset from  state " + mState.get());
+
+                    } else {
+
+                        throw new IllegalStateException("cannot call reset from state " + mState.get());
+                    }
             }
         }
         if (SHOW_LOGS) Logger.v(TAG, "<< reset , mState " + mState);
@@ -606,8 +776,9 @@ public abstract class MediaPlayerWrapper
     public void release() {
         if (SHOW_LOGS) Logger.v(TAG, ">> release, mState " + mState);
         synchronized (mState) {
-            clearProgressListener();
+            abandonAudioFocus(context);
             mMediaPlayer.release();
+
             mState.set(State.END);
         }
         if (SHOW_LOGS) Logger.v(TAG, "<< release, mState " + mState);
@@ -617,7 +788,6 @@ public abstract class MediaPlayerWrapper
         if (SHOW_LOGS) Logger.v(TAG, ">> clearAll, mState " + mState);
 
         synchronized (mState) {
-            clearProgressListener();
             mMediaPlayer.setOnVideoSizeChangedListener(null);
             mMediaPlayer.setOnCompletionListener(null);
             mMediaPlayer.setOnErrorListener(null);
@@ -628,10 +798,12 @@ public abstract class MediaPlayerWrapper
         if (SHOW_LOGS) Logger.v(TAG, "<< clearAll, mState " + mState);
     }
 
+
     public void setLooping(boolean looping) {
         if (SHOW_LOGS) Logger.v(TAG, "setLooping " + looping);
         mMediaPlayer.setLooping(looping);
     }
+
 
     public void setSurfaceTexture(SurfaceTexture surfaceTexture) {
         if (SHOW_LOGS) Logger.v(TAG, ">> setSurfaceTexture " + surfaceTexture);
@@ -644,7 +816,11 @@ public abstract class MediaPlayerWrapper
                 mMediaPlayer.setSurface(mSurface); // TODO fix illegal state exception
 
             } catch (IllegalStateException e) {
-                onError(mMediaPlayer,0,ERROR_CODE_SET_SURFACE_FAIL);
+                if (SHOW_LOGS)
+                    Logger.v(TAG, "MediaPlayer attch surface fail  " + Log.getStackTraceString(e));
+
+                mState.set(State.ERROR);
+                doOnErrorLogic(0, ERROR_CODE_SET_SURFACE_FAIL);//死锁了.
             }
         } else {
             mMediaPlayer.setSurface(null);
@@ -810,6 +986,13 @@ public abstract class MediaPlayerWrapper
 
         void onVideoPreparedMainThread();
 
+        /**
+         * 请使用VideoStateListener.onVideoPlayTimeChanged
+         * onVideoPlayTimeChanged
+         *
+         * @{ VideoStateListener#onVideoPlayTimeChanged}
+         */
+        @Deprecated
         void onProgressUpdate(int percent);
 
         void onVideoCompletionMainThread();

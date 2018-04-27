@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <cn.qssq666.videoplayer.playermanager.ui.VideoPlayerView
+
+
+        android:id="@+id/video_player"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+
+        />
+
+    <ImageView
+        android:id="@+id/image"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop" />
+
+
+    <ImageView
+        android:id="@+id/btn_play"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:clickable="false"
+        android:src="@drawable/btn_video_play" />
+
+
+
+    <TextView
+        android:id="@+id/tv_error_view"
+        android:layout_width="150dp"
+        android:background="#f00"
+        android:textColor="@android:color/white"
+        android:text="出现错误"
+        android:visibility="gone"
+        android:layout_gravity="center"
+        android:gravity="center"
+
+        android:layout_height="150dp" />
+
+    <TextView
+        android:id="@+id/tv_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|left"
+        android:layout_margin="12dp"
+        android:text="test"
+
+
+        android:textColor="#f00" />
+
+
+    <TextView
+
+        android:id="@+id/tv_cache_progress"
+        android:layout_gravity="center"
+        android:visibility="gone"
+        android:textSize="20sp"
+        android:text="0%"
+
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+
+
+
+
+
+
+
+    <View
+
+
+        android:id="@+id/video_player_mask"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+
+</FrameLayout>

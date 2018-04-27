@@ -117,6 +117,25 @@ public class VideoPlayerView extends ScalableTextureView
     }
 
 
+    public void seekToPercent(long percent) {
+        if (mMediaPlayer != null)
+
+        {
+            if (mMediaPlayer.isReadyForPlayback()) {
+                mMediaPlayer.seekToPercent((int) percent);
+            }
+         /*   MediaPlayer mediaPlayerInner = mMediaPlayer.getMediaPlayer();
+            if (mediaPlayerInner != null) {
+                mediaPlayerInner.seekTo(0);
+                mediaPlayerInner.start();
+            }*/
+
+
+        }
+
+    }
+
+
     public VideoPlayerView(Context context) {
         super(context);
         initView();
@@ -171,9 +190,23 @@ public class VideoPlayerView extends ScalableTextureView
 
                 mMediaPlayer = null;
             }
+
         }
 
+
         if (SHOW_LOGS) Logger.v(TAG, "<< clearPlayerInstance");
+    }
+
+    public void clearListener() {
+        if (mMediaPlayerMainThreadListeners != null) {
+            mMediaPlayerMainThreadListeners.clear();
+
+        }
+        mMediaPlayerListenerBackgroundThread = null;
+        mLocalSurfaceTextureListener = null;
+        if (mVideoUpdateMainThreadListeners != null) {
+            mVideoUpdateMainThreadListeners.clear();
+        }
     }
 
     public void createNewPlayerInstance() {
@@ -186,7 +219,7 @@ public class VideoPlayerView extends ScalableTextureView
         checkThread();
         synchronized (mReadyForPlaybackIndicator) {
 
-            mMediaPlayer = new MediaPlayerWrapperImpl();
+            mMediaPlayer = new MediaPlayerWrapperImpl(getContext().getApplicationContext());
 
             mReadyForPlaybackIndicator.setVideoSize(null, null);
             mReadyForPlaybackIndicator.setFailedToPrepareUiForPlayback(false);
@@ -196,7 +229,7 @@ public class VideoPlayerView extends ScalableTextureView
                 if (SHOW_LOGS) Logger.v(TAG, "texture " + texture);
                 mMediaPlayer.setSurfaceTexture(texture);
             } else {
-                if (SHOW_LOGS){
+                if (SHOW_LOGS) {
                     Logger.w(TAG, "texture not available wait setSurfaceTexture");
 
                 }
@@ -304,7 +337,7 @@ public class VideoPlayerView extends ScalableTextureView
         }
     }
 
-    public void setDataSource(AssetFileDescriptor assetFileDescriptor) {
+    public void setDataSource(AssetFileDescriptor assetFileDescriptor, String uuid) {
         checkThread();
         synchronized (mReadyForPlaybackIndicator) {
 
@@ -313,6 +346,7 @@ public class VideoPlayerView extends ScalableTextureView
 
             try {
                 mMediaPlayer.setDataSource(assetFileDescriptor);
+                mMediaPlayer.setVideoUUID(uuid);
             } catch (IOException e) {
                 Logger.d(TAG, e.getMessage());
                 throw new RuntimeException(e);
@@ -345,7 +379,7 @@ public class VideoPlayerView extends ScalableTextureView
         }
     }
 
-    public void addVidoeProgressUpdateListener(MediaPlayerWrapper.VideoStateListener listener) {
+    public void addVideoProgressUpdateListener(MediaPlayerWrapper.VideoStateListener listener) {
         synchronized (mVideoUpdateMainThreadListeners) {
             if (mVideoUpdateMainThreadListeners.contains(listener)) {
                 return;
@@ -528,6 +562,7 @@ public class VideoPlayerView extends ScalableTextureView
         }
     }
 
+    @Deprecated
     private void notifyOnVideoProgressUpdateMainThread(int percent) {
         if (SHOW_LOGS) Logger.v(TAG, "notifyOnVideoProgressUpdateMainThread");
         List<MediaPlayerWrapper.MainThreadMediaPlayerListener> listCopy;
@@ -715,9 +750,18 @@ public class VideoPlayerView extends ScalableTextureView
      * @see MediaPlayer#getDuration()
      */
     public int getDuration() {
-        synchronized (mReadyForPlaybackIndicator) {
+//        synchronized (mReadyForPlaybackIndicator) {
             return mMediaPlayer.getDuration();
-        }
+//        }
+    }
+
+    /**
+     * @see MediaPlayer#getDuration()
+     */
+    public int getCurrentPosition() {
+//        synchronized (mReadyForPlaybackIndicator) {
+            return mMediaPlayer.getCurrentPosition();
+//        }
     }
 
     @Override

@@ -11,7 +11,7 @@ import cn.qssq666.videoplayer.playermanager.meta.MetaData;
  * It supports :
  * 1. Start playback of new video by calling:
  *  a) {@link #playNewVideo(MetaData, VideoPlayerView, String)} if you have direct url or path to video source
- *  b) {@link #playNewVideo(MetaData, VideoPlayerView, AssetFileDescriptor)} is your video file is in assets directory
+ *  b) {@link #playNewVideo(MetaData, VideoPlayerView,String, AssetFileDescriptor)} is your video file is in assets directory
  * 2. Stop existing playback. {@link #stopAnyPlayback()}
  * 3. Reset Media Player if it's no longer needed. {@link #resetMediaPlayer()}
  */
@@ -33,7 +33,7 @@ public interface VideoPlayerManager<T extends MetaData> {
      * @param videoPlayerView - the actual video player
      * @param assetFileDescriptor -The asset descriptor of the video file
      */
-    void playNewVideo(T metaData, VideoPlayerView videoPlayerView, AssetFileDescriptor assetFileDescriptor);
+    void playNewVideo(T metaData, VideoPlayerView videoPlayerView,String uuid, AssetFileDescriptor assetFileDescriptor);
 
     /**
      * Call it if you need to stop any playback that is currently playing
@@ -55,4 +55,9 @@ public interface VideoPlayerManager<T extends MetaData> {
     boolean isPlay();
 
     void pause();
+    void destory();
+
+    void onPause();
+
+    void onResume();
 }
