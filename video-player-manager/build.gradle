@@ -38,7 +38,7 @@ apply plugin: 'com.jfrog.bintray'
 def siteUrl = 'https://qssq666.cn' // 修改为你的项目的主页
 def gitUrl = 'https://github.com/qssq/videoplayer' // 修改为你的Git仓库的ur
 
-version = "0.4"
+version = "0.6"
 group = "cn.qssq666" // Maven Group ID for the artifact，一般填你唯一的包名
 
 install {
@@ -140,7 +140,7 @@ artifacts {
 }
 
 Properties properties = new Properties()
-properties.load(project.file('d:/sign/sign.properties').newDataInputStream())
+properties.load(project.file(System.getenv("qssqsignfile")).newDataInputStream())
 bintray {
 
     user = properties.getProperty("bintray.user")

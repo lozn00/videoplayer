@@ -2,13 +2,13 @@
 
 列表播放则添加依赖如下
 ```groovy
-compile 'cn.qssq666:video-player-manager:0.1'
+compile 'cn.qssq666:video-player-manager:0.6'
 
 ```
 
 只需要处理缩放问题使用系统播放器省空间则如下
 ```groovy
-compile 'cn.qssq666:videoplayer:0.1'
+compile 'cn.qssq666:videoplayer:0.6'
 ```
 #### videoplayer
 videoplayer 模块是纯粹为了解锁缩放模式问题和第一帧图片和实现无黑白屏图片模式吻合播放所写的项目
